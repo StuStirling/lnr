@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,9 +8,8 @@ import (
 )
 
 func TestLoad_WithAPIKey(t *testing.T) {
-	// Set up
-	os.Setenv(EnvAPIKey, "test-api-key")
-	defer os.Unsetenv(EnvAPIKey)
+	// Set up - t.Setenv automatically cleans up after test
+	t.Setenv(EnvAPIKey, "test-api-key")
 
 	// Execute
 	cfg, err := Load()
@@ -22,8 +20,8 @@ func TestLoad_WithAPIKey(t *testing.T) {
 }
 
 func TestLoad_WithoutAPIKey(t *testing.T) {
-	// Set up
-	os.Unsetenv(EnvAPIKey)
+	// Set up - ensure env var is not set
+	t.Setenv(EnvAPIKey, "")
 
 	// Execute
 	cfg, err := Load()
@@ -34,8 +32,8 @@ func TestLoad_WithoutAPIKey(t *testing.T) {
 }
 
 func TestMustLoad_Panics(t *testing.T) {
-	// Set up
-	os.Unsetenv(EnvAPIKey)
+	// Set up - ensure env var is not set
+	t.Setenv(EnvAPIKey, "")
 
 	// Verify it panics
 	assert.Panics(t, func() {

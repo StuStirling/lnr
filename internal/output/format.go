@@ -52,21 +52,21 @@ func (f *Formatter) PrintJSON(data interface{}) error {
 // PrintTable outputs data as a formatted table using tabwriter
 func (f *Formatter) PrintTable(headers []string, rows [][]string) {
 	if len(rows) == 0 {
-		fmt.Fprintln(f.writer, "No results found.")
+		_, _ = fmt.Fprintln(f.writer, "No results found.")
 		return
 	}
 
 	w := tabwriter.NewWriter(f.writer, 0, 0, 2, ' ', 0)
 
 	// Print header
-	fmt.Fprintln(w, strings.Join(headers, "\t"))
+	_, _ = fmt.Fprintln(w, strings.Join(headers, "\t"))
 
 	// Print rows
 	for _, row := range rows {
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+		_, _ = fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
 
-	w.Flush()
+	_ = w.Flush()
 }
 
 // Print outputs data in the configured format
@@ -98,7 +98,7 @@ func (f *Formatter) PrintDetail(fields []DetailField, jsonData interface{}) erro
 				continue
 			}
 			padding := strings.Repeat(" ", maxLabelLen-len(field.Label))
-			fmt.Fprintf(f.writer, "%s:%s  %s\n", field.Label, padding, field.Value)
+			_, _ = fmt.Fprintf(f.writer, "%s:%s  %s\n", field.Label, padding, field.Value)
 		}
 		return nil
 	}
