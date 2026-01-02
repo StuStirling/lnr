@@ -15,6 +15,7 @@ import (
 func NewCmdList() *cobra.Command {
 	var teamID string
 	var state string
+	var limit int
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -22,7 +23,7 @@ func NewCmdList() *cobra.Command {
 		Long:  "List all projects in the Linear workspace.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonOutput, _ := cmd.Flags().GetBool("json")
-			opts := api.ProjectListOptions{}
+			opts := api.ProjectListOptions{First: limit}
 			if teamID != "" {
 				opts.TeamID = &teamID
 			}
@@ -35,6 +36,7 @@ func NewCmdList() *cobra.Command {
 
 	cmd.Flags().StringVar(&teamID, "team", "", "Filter by team ID")
 	cmd.Flags().StringVar(&state, "state", "", "Filter by state (e.g., started, completed, canceled)")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Maximum number of projects to return")
 
 	return cmd
 }
