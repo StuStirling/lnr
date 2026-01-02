@@ -3,9 +3,20 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/hasura/go-graphql-client"
 )
+
+// escapeGraphQLString escapes special characters in a string for use in GraphQL queries
+func escapeGraphQLString(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "\"", "\\\"")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
+	return s
+}
 
 const (
 	// LinearAPIEndpoint is the Linear GraphQL API endpoint
@@ -568,49 +579,72 @@ func (c *LinearClient) GetIssue(ctx context.Context, id string) (*Issue, error) 
 	return issue, nil
 }
 
-// SearchIssues searches for issues matching the query
+// searchIssuesResponse is the response structure for issue search
+type searchIssuesResponse struct {
+	Issues struct {
+		Nodes []struct {
+			ID         string `json:"id"`
+			Identifier string `json:"identifier"`
+			Title      string `json:"title"`
+			Priority   int    `json:"priority"`
+			URL        string `json:"url"`
+			State      *struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"state"`
+			Assignee *struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"assignee"`
+			Team struct {
+				ID  string `json:"id"`
+				Key string `json:"key"`
+			} `json:"team"`
+		} `json:"nodes"`
+	} `json:"issues"`
+}
+
+// SearchIssues searches for issues matching the query in title
 func (c *LinearClient) SearchIssues(ctx context.Context, query string, opts IssueListOptions) ([]Issue, error) {
 	first := opts.First
 	if first == 0 {
 		first = 50
 	}
 
-	var gqlQuery struct {
-		IssueSearch struct {
-			Nodes []struct {
-				ID          string  `graphql:"id"`
-				Identifier  string  `graphql:"identifier"`
-				Title       string  `graphql:"title"`
-				Description string  `graphql:"description"`
-				Priority    int     `graphql:"priority"`
-				URL         string  `graphql:"url"`
-				State       *struct {
-					ID   string `graphql:"id"`
-					Name string `graphql:"name"`
-				} `graphql:"state"`
-				Assignee *struct {
-					ID   string `graphql:"id"`
-					Name string `graphql:"name"`
-				} `graphql:"assignee"`
-				Team struct {
-					ID  string `graphql:"id"`
-					Key string `graphql:"key"`
-				} `graphql:"team"`
-			} `graphql:"nodes"`
-		} `graphql:"issueSearch(query: $query, first: $first)"`
-	}
+	// Escape quotes in query to prevent injection
+	escapedQuery := escapeGraphQLString(query)
 
-	vars := map[string]interface{}{
-		"query": graphql.String(query),
-		"first": graphql.Int(first),
-	}
+	// Use raw query with Exec for complex filter
+	rawQuery := `
+		query SearchIssues($first: Int!) {
+			issues(
+				filter: { title: { containsIgnoreCase: "` + escapedQuery + `" } }
+				first: $first
+			) {
+				nodes {
+					id
+					identifier
+					title
+					priority
+					url
+					state { id name }
+					assignee { id name }
+					team { id key }
+				}
+			}
+		}
+	`
 
-	if err := c.gql.Query(ctx, &gqlQuery, vars); err != nil {
+	var result searchIssuesResponse
+	err := c.gql.Exec(ctx, rawQuery, &result, map[string]interface{}{
+		"first": first,
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	issues := make([]Issue, 0, len(gqlQuery.IssueSearch.Nodes))
-	for _, i := range gqlQuery.IssueSearch.Nodes {
+	issues := make([]Issue, 0, len(result.Issues.Nodes))
+	for _, i := range result.Issues.Nodes {
 		issue := Issue{
 			ID:         i.ID,
 			Identifier: i.Identifier,

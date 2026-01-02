@@ -131,6 +131,153 @@ func TestGetTeams(t *testing.T) {
 	assert.Equal(t, "PRD", teams[1].Key)
 }
 
+func TestSearchIssues(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"issues": map[string]interface{}{
+					"nodes": []map[string]interface{}{
+						{
+							"id":         "issue-1",
+							"identifier": "ENG-123",
+							"title":      "Fix login bug",
+							"priority":   2,
+							"url":        "https://linear.app/test/issue/ENG-123",
+							"state": map[string]interface{}{
+								"id":   "state-1",
+								"name": "In Progress",
+							},
+							"assignee": map[string]interface{}{
+								"id":   "user-1",
+								"name": "John Doe",
+							},
+							"team": map[string]interface{}{
+								"id":  "team-1",
+								"key": "ENG",
+							},
+						},
+						{
+							"id":         "issue-2",
+							"identifier": "ENG-124",
+							"title":      "Login page redesign",
+							"priority":   3,
+							"url":        "https://linear.app/test/issue/ENG-124",
+							"state": map[string]interface{}{
+								"id":   "state-2",
+								"name": "Backlog",
+							},
+							"assignee": nil,
+							"team": map[string]interface{}{
+								"id":  "team-1",
+								"key": "ENG",
+							},
+						},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	issues, err := client.SearchIssues(ctx, "login", IssueListOptions{First: 10})
+
+	require.NoError(t, err)
+	assert.Len(t, issues, 2)
+
+	// Check first issue
+	assert.Equal(t, "ENG-123", issues[0].Identifier)
+	assert.Equal(t, "Fix login bug", issues[0].Title)
+	assert.Equal(t, 2, issues[0].Priority)
+	assert.Equal(t, "In Progress", issues[0].State.Name)
+	assert.Equal(t, "John Doe", issues[0].Assignee.Name)
+	assert.Equal(t, "ENG", issues[0].Team.Key)
+
+	// Check second issue (no assignee)
+	assert.Equal(t, "ENG-124", issues[1].Identifier)
+	assert.Nil(t, issues[1].Assignee)
+}
+
+func TestSearchIssues_EmptyResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"issues": map[string]interface{}{
+					"nodes": []map[string]interface{}{},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	issues, err := client.SearchIssues(ctx, "nonexistent", IssueListOptions{})
+
+	require.NoError(t, err)
+	assert.Empty(t, issues)
+}
+
+func TestEscapeGraphQLString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no special characters",
+			input:    "simple query",
+			expected: "simple query",
+		},
+		{
+			name:     "double quotes",
+			input:    `search "term"`,
+			expected: `search \"term\"`,
+		},
+		{
+			name:     "backslash",
+			input:    `path\to\file`,
+			expected: `path\\to\\file`,
+		},
+		{
+			name:     "newline",
+			input:    "line1\nline2",
+			expected: `line1\nline2`,
+		},
+		{
+			name:     "tab",
+			input:    "col1\tcol2",
+			expected: `col1\tcol2`,
+		},
+		{
+			name:     "carriage return",
+			input:    "line1\rline2",
+			expected: `line1\rline2`,
+		},
+		{
+			name:     "mixed special characters",
+			input:    "test \"value\"\nwith\\special",
+			expected: `test \"value\"\nwith\\special`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := escapeGraphQLString(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 // Helper to create a test GraphQL client pointing to a test server
 func createTestClient(url, apiKey string) *graphqlClient {
 	httpClient := &http.Client{
