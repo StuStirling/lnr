@@ -8,7 +8,7 @@ import (
 func NewCmdUser() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
-		Short: "Manage users",
+		Short: "View users",
 		Long:  "Commands for viewing Linear workspace users.",
 	}
 

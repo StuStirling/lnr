@@ -8,11 +8,12 @@ import (
 func NewCmdTeam() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "team",
-		Short: "Manage teams",
+		Short: "View teams",
 		Long:  "Commands for viewing Linear teams.",
 	}
 
 	cmd.AddCommand(NewCmdList())
+	cmd.AddCommand(NewCmdView())
 
 	return cmd
 }

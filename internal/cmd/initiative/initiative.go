@@ -8,7 +8,7 @@ import (
 func NewCmdInitiative() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "initiative",
-		Short: "Manage initiatives",
+		Short: "View initiatives",
 		Long:  "Commands for viewing Linear initiatives.",
 	}
 

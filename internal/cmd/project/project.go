@@ -8,7 +8,7 @@ import (
 func NewCmdProject() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project",
-		Short: "Manage projects",
+		Short: "View projects",
 		Long:  "Commands for viewing Linear projects.",
 	}
 

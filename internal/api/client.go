@@ -2,21 +2,16 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
-	"strings"
+	"time"
 
 	"github.com/hasura/go-graphql-client"
 )
 
-// escapeGraphQLString escapes special characters in a string for use in GraphQL queries
-func escapeGraphQLString(s string) string {
-	s = strings.ReplaceAll(s, "\\", "\\\\")
-	s = strings.ReplaceAll(s, "\"", "\\\"")
-	s = strings.ReplaceAll(s, "\n", "\\n")
-	s = strings.ReplaceAll(s, "\r", "\\r")
-	s = strings.ReplaceAll(s, "\t", "\\t")
-	return s
-}
+// ErrNoActiveCycle is returned when a team has no active cycle
+var ErrNoActiveCycle = errors.New("no active cycle for this team")
 
 const (
 	// LinearAPIEndpoint is the Linear GraphQL API endpoint
@@ -34,6 +29,7 @@ type Client interface {
 
 	// Teams
 	GetTeams(ctx context.Context) ([]Team, error)
+	GetTeam(ctx context.Context, id string) (*Team, error)
 
 	// Labels
 	GetLabels(ctx context.Context, teamID *string) ([]Label, error)
@@ -66,7 +62,6 @@ type IssueListOptions struct {
 	AssigneeID *string
 	StateID    *string
 	ProjectID  *string
-	LabelID    *string
 	First      int
 }
 
@@ -97,6 +92,7 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // NewClient creates a new Linear API client
 func NewClient(apiKey string) *LinearClient {
 	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
 		Transport: &authTransport{
 			apiKey:    apiKey,
 			transport: http.DefaultTransport,
@@ -123,7 +119,7 @@ func (c *LinearClient) GetViewer(ctx context.Context) (*User, error) {
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get viewer: %w", err)
 	}
 
 	return &User{
@@ -150,7 +146,7 @@ func (c *LinearClient) GetOrganisation(ctx context.Context) (*Organisation, erro
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get organisation: %w", err)
 	}
 
 	return &Organisation{
@@ -179,7 +175,7 @@ func (c *LinearClient) GetUsers(ctx context.Context) ([]User, error) {
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get users: %w", err)
 	}
 
 	users := make([]User, len(query.Users.Nodes))
@@ -212,7 +208,7 @@ func (c *LinearClient) GetTeams(ctx context.Context) ([]Team, error) {
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get teams: %w", err)
 	}
 
 	teams := make([]Team, len(query.Teams.Nodes))
@@ -226,6 +222,35 @@ func (c *LinearClient) GetTeams(ctx context.Context) ([]Team, error) {
 		}
 	}
 	return teams, nil
+}
+
+// GetTeam returns a single team by ID
+func (c *LinearClient) GetTeam(ctx context.Context, id string) (*Team, error) {
+	var query struct {
+		Team struct {
+			ID          string `graphql:"id"`
+			Name        string `graphql:"name"`
+			Key         string `graphql:"key"`
+			Description string `graphql:"description"`
+			Private     bool   `graphql:"private"`
+		} `graphql:"team(id: $id)"`
+	}
+
+	vars := map[string]interface{}{
+		"id": graphql.String(id),
+	}
+
+	if err := c.gql.Query(ctx, &query, vars); err != nil {
+		return nil, fmt.Errorf("get team: %w", err)
+	}
+
+	return &Team{
+		ID:          query.Team.ID,
+		Name:        query.Team.Name,
+		Key:         query.Team.Key,
+		Description: query.Team.Description,
+		Private:     query.Team.Private,
+	}, nil
 }
 
 // GetLabels returns labels, optionally filtered by team
@@ -247,7 +272,7 @@ func (c *LinearClient) GetLabels(ctx context.Context, teamID *string) ([]Label, 
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get labels: %w", err)
 	}
 
 	labels := make([]Label, 0, len(query.IssueLabels.Nodes))
@@ -295,7 +320,7 @@ func (c *LinearClient) GetWorkflowStates(ctx context.Context, teamID *string) ([
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get workflow states: %w", err)
 	}
 
 	states := make([]WorkflowState, 0, len(query.WorkflowStates.Nodes))
@@ -377,7 +402,7 @@ func (c *LinearClient) GetIssues(ctx context.Context, opts IssueListOptions) ([]
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get issues: %w", err)
 	}
 
 	issues := make([]Issue, 0, len(query.Issues.Nodes))
@@ -508,7 +533,7 @@ func (c *LinearClient) GetIssue(ctx context.Context, id string) (*Issue, error) 
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get issue: %w", err)
 	}
 
 	i := query.Issue
@@ -611,14 +636,12 @@ func (c *LinearClient) SearchIssues(ctx context.Context, query string, opts Issu
 		first = 50
 	}
 
-	// Escape quotes in query to prevent injection
-	escapedQuery := escapeGraphQLString(query)
-
-	// Use raw query with Exec for complex filter
+	// Use proper GraphQL variables to prevent injection
+	// The filter is passed as a variable, not concatenated into the query
 	rawQuery := `
-		query SearchIssues($first: Int!) {
+		query SearchIssues($first: Int!, $filter: IssueFilter!) {
 			issues(
-				filter: { title: { containsIgnoreCase: "` + escapedQuery + `" } }
+				filter: $filter
 				first: $first
 			) {
 				nodes {
@@ -635,12 +658,20 @@ func (c *LinearClient) SearchIssues(ctx context.Context, query string, opts Issu
 		}
 	`
 
+	// Build filter as a properly typed variable
+	filter := map[string]interface{}{
+		"title": map[string]interface{}{
+			"containsIgnoreCase": query,
+		},
+	}
+
 	var result searchIssuesResponse
 	err := c.gql.Exec(ctx, rawQuery, &result, map[string]interface{}{
-		"first": first,
+		"first":  first,
+		"filter": filter,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("search issues: %w", err)
 	}
 
 	issues := make([]Issue, 0, len(result.Issues.Nodes))
@@ -716,7 +747,7 @@ func (c *LinearClient) GetProjects(ctx context.Context, opts ProjectListOptions)
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get projects: %w", err)
 	}
 
 	projects := make([]Project, 0, len(query.Projects.Nodes))
@@ -804,7 +835,7 @@ func (c *LinearClient) GetProject(ctx context.Context, id string) (*Project, err
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get project: %w", err)
 	}
 
 	p := query.Project
@@ -857,7 +888,7 @@ func (c *LinearClient) GetInitiatives(ctx context.Context) ([]Initiative, error)
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get initiatives: %w", err)
 	}
 
 	initiatives := make([]Initiative, len(query.Initiatives.Nodes))
@@ -908,7 +939,7 @@ func (c *LinearClient) GetInitiative(ctx context.Context, id string) (*Initiativ
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get initiative: %w", err)
 	}
 
 	i := query.Initiative
@@ -959,7 +990,7 @@ func (c *LinearClient) GetCycles(ctx context.Context, teamID *string) ([]Cycle, 
 	}
 
 	if err := c.gql.Query(ctx, &query, nil); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get cycles: %w", err)
 	}
 
 	cycles := make([]Cycle, 0, len(query.Cycles.Nodes))
@@ -1009,11 +1040,11 @@ func (c *LinearClient) GetActiveCycle(ctx context.Context, teamID string) (*Cycl
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get active cycle: %w", err)
 	}
 
 	if query.Team.ActiveCycle == nil {
-		return nil, nil
+		return nil, ErrNoActiveCycle
 	}
 
 	ac := query.Team.ActiveCycle
@@ -1055,7 +1086,7 @@ func (c *LinearClient) GetCycle(ctx context.Context, id string) (*Cycle, error) 
 	}
 
 	if err := c.gql.Query(ctx, &query, vars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get cycle: %w", err)
 	}
 
 	cy := query.Cycle

@@ -227,57 +227,6 @@ func TestSearchIssues_EmptyResults(t *testing.T) {
 	assert.Empty(t, issues)
 }
 
-func TestEscapeGraphQLString(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "no special characters",
-			input:    "simple query",
-			expected: "simple query",
-		},
-		{
-			name:     "double quotes",
-			input:    `search "term"`,
-			expected: `search \"term\"`,
-		},
-		{
-			name:     "backslash",
-			input:    `path\to\file`,
-			expected: `path\\to\\file`,
-		},
-		{
-			name:     "newline",
-			input:    "line1\nline2",
-			expected: `line1\nline2`,
-		},
-		{
-			name:     "tab",
-			input:    "col1\tcol2",
-			expected: `col1\tcol2`,
-		},
-		{
-			name:     "carriage return",
-			input:    "line1\rline2",
-			expected: `line1\rline2`,
-		},
-		{
-			name:     "mixed special characters",
-			input:    "test \"value\"\nwith\\special",
-			expected: `test \"value\"\nwith\\special`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := escapeGraphQLString(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 // Helper to create a test GraphQL client pointing to a test server
 func createTestClient(url, apiKey string) *graphqlClient {
 	httpClient := &http.Client{

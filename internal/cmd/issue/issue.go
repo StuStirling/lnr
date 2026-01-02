@@ -8,7 +8,7 @@ import (
 func NewCmdIssue() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
-		Short: "Manage issues",
+		Short: "View issues",
 		Long:  "Commands for viewing Linear issues.",
 	}
 

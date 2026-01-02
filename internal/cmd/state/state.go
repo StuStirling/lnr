@@ -8,7 +8,7 @@ import (
 func NewCmdState() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "state",
-		Short: "Manage workflow states",
+		Short: "View workflow states",
 		Long:  "Commands for viewing Linear workflow states.",
 	}
 

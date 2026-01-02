@@ -8,7 +8,7 @@ import (
 func NewCmdCycle() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cycle",
-		Short: "Manage cycles",
+		Short: "View cycles",
 		Long:  "Commands for viewing Linear cycles (sprints).",
 	}
 

@@ -8,7 +8,7 @@ import (
 func NewCmdAuth() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
-		Short: "Manage authentication",
+		Short: "Authentication commands",
 		Long:  "Commands for managing Linear authentication.",
 	}
 

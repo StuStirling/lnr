@@ -8,7 +8,7 @@ import (
 func NewCmdLabel() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label",
-		Short: "Manage labels",
+		Short: "View labels",
 		Long:  "Commands for viewing Linear issue labels.",
 	}
 

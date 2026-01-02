@@ -2,9 +2,11 @@ package cycle
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/stustirling/lnr/internal/api"
 	"github.com/stustirling/lnr/internal/output"
 	"github.com/stustirling/lnr/pkg/cmdutil"
 )
@@ -34,12 +36,11 @@ func runActive(jsonOutput bool, teamID string) error {
 	ctx := context.Background()
 	cycle, err := factory.Client.GetActiveCycle(ctx, teamID)
 	if err != nil {
+		if errors.Is(err, api.ErrNoActiveCycle) {
+			fmt.Println("No active cycle for this team.")
+			return nil
+		}
 		return fmt.Errorf("failed to get active cycle: %w", err)
-	}
-
-	if cycle == nil {
-		fmt.Println("No active cycle for this team.")
-		return nil
 	}
 
 	fields := []output.DetailField{

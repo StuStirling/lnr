@@ -3,6 +3,7 @@ version: 2
 before:
   hooks:
     - go mod tidy
+    - go test ./...
 
 builds:
   - env:
@@ -16,7 +17,7 @@ builds:
       - arm64
     binary: lnr
     ldflags:
-      - -s -w
+      - -s -w -X github.com/stustirling/lnr/cmd.Version={{.Version}}
 
 archives:
   - format: tar.gz
