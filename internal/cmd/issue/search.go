@@ -43,6 +43,9 @@ func runSearch(jsonOutput bool, query string, opts api.IssueListOptions) error {
 		return fmt.Errorf("failed to search issues: %w", err)
 	}
 
+	// Warn if results might be truncated
+	output.WarnIfTruncated(len(issues), opts.First)
+
 	headers := []string{"ID", "TITLE", "STATE", "ASSIGNEE", "PRIORITY"}
 	rows := make([][]string, len(issues))
 	for i, issue := range issues {

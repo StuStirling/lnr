@@ -36,6 +36,9 @@ func runList(jsonOutput bool) error {
 		return fmt.Errorf("failed to list initiatives: %w", err)
 	}
 
+	// Warn if results might be truncated (API limit is 50)
+	output.WarnIfTruncated(len(initiatives), 50)
+
 	headers := []string{"NAME", "OWNER", "TARGET DATE"}
 	rows := make([][]string, len(initiatives))
 	for i, init := range initiatives {

@@ -160,3 +160,10 @@ func NameOrDash(name *string) string {
 	}
 	return *name
 }
+
+// WarnIfTruncated prints a warning to stderr if results might be truncated
+func WarnIfTruncated(count, limit int) {
+	if count >= limit {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: Showing %d results. There may be more results available.\n", count)
+	}
+}

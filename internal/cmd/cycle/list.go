@@ -44,6 +44,9 @@ func runList(jsonOutput bool, teamID *string) error {
 		return fmt.Errorf("failed to list cycles: %w", err)
 	}
 
+	// Warn if results might be truncated (API limit is 50)
+	output.WarnIfTruncated(len(cycles), 50)
+
 	headers := []string{"NUMBER", "NAME", "PROGRESS", "TEAM"}
 	rows := make([][]string, len(cycles))
 	for i, c := range cycles {

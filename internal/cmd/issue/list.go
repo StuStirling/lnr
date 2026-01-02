@@ -55,12 +55,18 @@ func runList(jsonOutput bool, opts api.IssueListOptions) error {
 	if err != nil {
 		return err
 	}
+	return runListWithFactory(factory, opts)
+}
 
+func runListWithFactory(factory *cmdutil.Factory, opts api.IssueListOptions) error {
 	ctx := context.Background()
 	issues, err := factory.Client.GetIssues(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list issues: %w", err)
 	}
+
+	// Warn if results might be truncated
+	output.WarnIfTruncated(len(issues), opts.First)
 
 	headers := []string{"ID", "TITLE", "STATE", "ASSIGNEE", "PRIORITY"}
 	rows := make([][]string, len(issues))

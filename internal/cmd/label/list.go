@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/stustirling/lnr/internal/output"
 	"github.com/stustirling/lnr/pkg/cmdutil"
 )
 
@@ -42,6 +43,9 @@ func runList(jsonOutput bool, teamID *string) error {
 	if err != nil {
 		return fmt.Errorf("failed to list labels: %w", err)
 	}
+
+	// Warn if results might be truncated (API limit is 100)
+	output.WarnIfTruncated(len(labels), 100)
 
 	headers := []string{"NAME", "COLOR", "TEAM"}
 	rows := make([][]string, len(labels))

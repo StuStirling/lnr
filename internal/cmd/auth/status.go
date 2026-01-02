@@ -39,7 +39,10 @@ func runStatus(jsonOutput bool) error {
 		}
 		return err
 	}
+	return runStatusWithFactory(factory, jsonOutput)
+}
 
+func runStatusWithFactory(factory *cmdutil.Factory, jsonOutput bool) error {
 	ctx := context.Background()
 
 	// Get current user

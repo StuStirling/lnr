@@ -51,6 +51,13 @@ func runList(jsonOutput bool, opts api.ProjectListOptions) error {
 		return fmt.Errorf("failed to list projects: %w", err)
 	}
 
+	// Warn if results might be truncated (API default limit is 50)
+	limit := opts.First
+	if limit == 0 {
+		limit = 50
+	}
+	output.WarnIfTruncated(len(projects), limit)
+
 	headers := []string{"NAME", "STATE", "PROGRESS", "LEAD", "TEAMS"}
 	rows := make([][]string, len(projects))
 	for i, p := range projects {

@@ -36,6 +36,9 @@ func runList(jsonOutput bool) error {
 		return fmt.Errorf("failed to list teams: %w", err)
 	}
 
+	// Warn if results might be truncated (API limit is 100)
+	output.WarnIfTruncated(len(teams), 100)
+
 	headers := []string{"KEY", "NAME", "DESCRIPTION"}
 	rows := make([][]string, len(teams))
 	for i, t := range teams {

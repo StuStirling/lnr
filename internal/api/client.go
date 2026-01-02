@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -89,13 +91,82 @@ func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.transport.RoundTrip(req)
 }
 
+// retryTransport wraps a transport and retries on rate limit errors
+type retryTransport struct {
+	transport  http.RoundTripper
+	maxRetries int
+}
+
+func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Read and store the body so we can retry
+	var bodyBytes []byte
+	if req.Body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read request body: %w", err)
+		}
+		_ = req.Body.Close()
+	}
+
+	var resp *http.Response
+	var err error
+
+	for attempt := 0; attempt <= t.maxRetries; attempt++ {
+		// Restore the body for each attempt
+		if bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		resp, err = t.transport.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+
+		// If not rate limited, return immediately
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
+
+		// Don't retry on last attempt
+		if attempt == t.maxRetries {
+			break
+		}
+
+		// Close the response body before retrying
+		_ = resp.Body.Close()
+
+		// Calculate backoff: 1s, 2s, 4s
+		backoff := time.Duration(1<<attempt) * time.Second
+
+		// Check for Retry-After header
+		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+			if seconds, parseErr := time.ParseDuration(retryAfter + "s"); parseErr == nil {
+				backoff = seconds
+			}
+		}
+
+		// Wait before retrying
+		select {
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		case <-time.After(backoff):
+		}
+	}
+
+	return resp, nil
+}
+
 // NewClient creates a new Linear API client
 func NewClient(apiKey string) *LinearClient {
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
-		Transport: &authTransport{
-			apiKey:    apiKey,
-			transport: http.DefaultTransport,
+		Transport: &retryTransport{
+			maxRetries: 3,
+			transport: &authTransport{
+				apiKey:    apiKey,
+				transport: http.DefaultTransport,
+			},
 		},
 	}
 

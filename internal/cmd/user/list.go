@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/stustirling/lnr/internal/output"
 	"github.com/stustirling/lnr/pkg/cmdutil"
 )
 
@@ -34,6 +35,9 @@ func runList(jsonOutput bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to list users: %w", err)
 	}
+
+	// Warn if results might be truncated (API limit is 100)
+	output.WarnIfTruncated(len(users), 100)
 
 	headers := []string{"NAME", "EMAIL", "ACTIVE", "ADMIN"}
 	rows := make([][]string, len(users))

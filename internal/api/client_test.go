@@ -227,6 +227,265 @@ func TestSearchIssues_EmptyResults(t *testing.T) {
 	assert.Empty(t, issues)
 }
 
+func TestGetUsers(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"users": map[string]interface{}{
+					"nodes": []map[string]interface{}{
+						{
+							"id":          "user-1",
+							"name":        "Alice",
+							"email":       "alice@example.com",
+							"displayName": "Alice A",
+							"active":      true,
+							"admin":       true,
+							"avatarUrl":   "https://example.com/alice.png",
+						},
+						{
+							"id":          "user-2",
+							"name":        "Bob",
+							"email":       "bob@example.com",
+							"displayName": "Bob B",
+							"active":      true,
+							"admin":       false,
+							"avatarUrl":   "https://example.com/bob.png",
+						},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	users, err := client.GetUsers(ctx)
+
+	require.NoError(t, err)
+	assert.Len(t, users, 2)
+	assert.Equal(t, "Alice", users[0].Name)
+	assert.True(t, users[0].Admin)
+	assert.Equal(t, "Bob", users[1].Name)
+	assert.False(t, users[1].Admin)
+}
+
+func TestGetIssues(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"issues": map[string]interface{}{
+					"nodes": []map[string]interface{}{
+						{
+							"id":          "issue-1",
+							"identifier":  "ENG-100",
+							"title":       "Test Issue",
+							"description": "Test description",
+							"priority":    1,
+							"url":         "https://linear.app/test/issue/ENG-100",
+							"createdAt":   "2024-01-01T00:00:00Z",
+							"updatedAt":   "2024-01-02T00:00:00Z",
+							"state": map[string]interface{}{
+								"id":    "state-1",
+								"name":  "Todo",
+								"color": "#000",
+								"type":  "unstarted",
+							},
+							"team": map[string]interface{}{
+								"id":   "team-1",
+								"name": "Engineering",
+								"key":  "ENG",
+							},
+							"labels": map[string]interface{}{
+								"nodes": []map[string]interface{}{},
+							},
+						},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	issues, err := client.GetIssues(ctx, IssueListOptions{First: 10})
+
+	require.NoError(t, err)
+	assert.Len(t, issues, 1)
+	assert.Equal(t, "ENG-100", issues[0].Identifier)
+	assert.Equal(t, "Test Issue", issues[0].Title)
+	assert.Equal(t, 1, issues[0].Priority)
+	assert.Equal(t, "Todo", issues[0].State.Name)
+	assert.Equal(t, "ENG", issues[0].Team.Key)
+}
+
+func TestGetProjects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"projects": map[string]interface{}{
+					"nodes": []map[string]interface{}{
+						{
+							"id":          "proj-1",
+							"name":        "Project Alpha",
+							"description": "First project",
+							"state":       "started",
+							"progress":    0.5,
+							"url":         "https://linear.app/test/project/proj-1",
+							"createdAt":   "2024-01-01T00:00:00Z",
+							"updatedAt":   "2024-01-02T00:00:00Z",
+							"teams": map[string]interface{}{
+								"nodes": []map[string]interface{}{
+									{"id": "team-1", "name": "Engineering", "key": "ENG"},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	projects, err := client.GetProjects(ctx, ProjectListOptions{First: 10})
+
+	require.NoError(t, err)
+	assert.Len(t, projects, 1)
+	assert.Equal(t, "Project Alpha", projects[0].Name)
+	assert.Equal(t, "started", projects[0].State)
+	assert.Equal(t, 0.5, projects[0].Progress)
+	assert.Len(t, projects[0].Teams, 1)
+	assert.Equal(t, "ENG", projects[0].Teams[0].Key)
+}
+
+func TestGetCycles(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"cycles": map[string]interface{}{
+					"nodes": []map[string]interface{}{
+						{
+							"id":          "cycle-1",
+							"name":        "Sprint 1",
+							"number":      1,
+							"startsAt":    "2024-01-01T00:00:00Z",
+							"endsAt":      "2024-01-14T00:00:00Z",
+							"progress":    0.75,
+							"description": "First sprint",
+							"team": map[string]interface{}{
+								"id":   "team-1",
+								"name": "Engineering",
+								"key":  "ENG",
+							},
+						},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	cycles, err := client.GetCycles(ctx, nil)
+
+	require.NoError(t, err)
+	assert.Len(t, cycles, 1)
+	assert.Equal(t, "Sprint 1", cycles[0].Name)
+	assert.Equal(t, 1, cycles[0].Number)
+	assert.Equal(t, 0.75, cycles[0].Progress)
+	assert.Equal(t, "ENG", cycles[0].Team.Key)
+}
+
+func TestGetActiveCycle_NoCycle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"team": map[string]interface{}{
+					"id":          "team-1",
+					"name":        "Engineering",
+					"key":         "ENG",
+					"activeCycle": nil,
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := &LinearClient{
+		gql: createTestClient(server.URL, "test-api-key"),
+	}
+
+	ctx := context.Background()
+	cycle, err := client.GetActiveCycle(ctx, "team-1")
+
+	assert.Nil(t, cycle)
+	assert.ErrorIs(t, err, ErrNoActiveCycle)
+}
+
+func TestRetryTransport_RateLimited(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		response := map[string]interface{}{
+			"data": map[string]interface{}{
+				"viewer": map[string]interface{}{
+					"id":    "user-1",
+					"name":  "Test",
+					"email": "test@example.com",
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Create client with retry transport
+	httpClient := &http.Client{
+		Transport: &retryTransport{
+			maxRetries: 3,
+			transport: &authTransport{
+				apiKey:    "test-key",
+				transport: http.DefaultTransport,
+			},
+		},
+	}
+	client := &LinearClient{
+		gql: graphql.NewClient(server.URL, httpClient),
+	}
+
+	ctx := context.Background()
+	user, err := client.GetViewer(ctx)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Test", user.Name)
+	assert.Equal(t, 3, attempts) // Should have retried twice
+}
+
 // Helper to create a test GraphQL client pointing to a test server
 func createTestClient(url, apiKey string) *graphqlClient {
 	httpClient := &http.Client{
