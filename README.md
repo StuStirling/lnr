@@ -4,6 +4,12 @@ A command-line interface for [Linear](https://linear.app), written in Go.
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install stustirling/tap/lnr
+```
+
 ### Using Go
 
 ```bash

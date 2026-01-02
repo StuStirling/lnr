@@ -35,6 +35,18 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+brews:
+  - repository:
+      owner: StuStirling
+      name: homebrew-tap
+    homepage: "https://github.com/StuStirling/lnr"
+    description: "A read-only CLI for Linear"
+    license: "MIT"
+    install: |
+      bin.install "lnr"
+    test: |
+      system "#{bin}/lnr", "--version"
+
 changelog:
   sort: asc
   filters:
