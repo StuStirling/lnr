@@ -596,6 +596,15 @@ func (c *LinearClient) GetIssue(ctx context.Context, id string) (*Issue, error) 
 					Color string `graphql:"color"`
 				} `graphql:"nodes"`
 			} `graphql:"labels"`
+			Attachments struct {
+				Nodes []struct {
+					ID         string `graphql:"id"`
+					Title      string `graphql:"title"`
+					Subtitle   string `graphql:"subtitle"`
+					URL        string `graphql:"url"`
+					SourceType string `graphql:"sourceType"`
+				} `graphql:"nodes"`
+			} `graphql:"attachments"`
 		} `graphql:"issue(id: $id)"`
 	}
 
@@ -669,6 +678,16 @@ func (c *LinearClient) GetIssue(ctx context.Context, id string) (*Issue, error) 
 			ID:    l.ID,
 			Name:  l.Name,
 			Color: l.Color,
+		})
+	}
+
+	for _, a := range i.Attachments.Nodes {
+		issue.Attachments = append(issue.Attachments, Attachment{
+			ID:         a.ID,
+			Title:      a.Title,
+			Subtitle:   a.Subtitle,
+			URL:        a.URL,
+			SourceType: a.SourceType,
 		})
 	}
 

@@ -41,6 +41,15 @@ type Label struct {
 	Team        *Team  `json:"team,omitempty"`
 }
 
+// Attachment represents an issue attachment (e.g. pull request, support ticket)
+type Attachment struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Subtitle   string `json:"subtitle,omitempty"`
+	URL        string `json:"url"`
+	SourceType string `json:"sourceType,omitempty"` // "github", "gitlab", etc.
+}
+
 // Issue represents a Linear issue
 type Issue struct {
 	ID          string         `json:"id"`
@@ -56,6 +65,7 @@ type Issue struct {
 	Project     *Project       `json:"project"`
 	Cycle       *Cycle         `json:"cycle"`
 	Labels      []Label        `json:"labels"`
+	Attachments []Attachment   `json:"attachments,omitempty"`
 	CreatedAt   time.Time      `json:"createdAt"`
 	UpdatedAt   time.Time      `json:"updatedAt"`
 	DueDate     *string        `json:"dueDate"`
