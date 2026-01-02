@@ -40,6 +40,7 @@ brews:
   - repository:
       owner: StuStirling
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/StuStirling/lnr"
     description: "A read-only CLI for Linear"
     license: "MIT"
